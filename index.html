@@ -1,0 +1,707 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Torque HQ</title>
+<meta name="description" content="Torque specs at your fingertips. Bolt sequences, removal order and the factory manual's numbers, starting with the Nissan 350Z.">
+<meta name="theme-color" content="#0C0D0F">
+<link rel="icon" type="image/png" sizes="32x32" href="img/icon-32.png">
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Torque HQ">
+<meta property="og:title" content="Torque HQ — torque specs at your fingertips">
+<meta property="og:description" content="Factory torque specs, bolt sequences and removal order on your phone, starting with the Nissan 350Z (VQ35DE). Open beta coming soon.">
+<meta property="og:image" content="img/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: the app's spec card blown up to page size. Dotted leaders, big tabular numbers, mono labels,
+   and real phone screens as the evidence. One dark look on purpose: the app's own night-garage palette. */
+:root{
+  color-scheme:dark;
+  --asphalt:#0C0D0F;        /* page */
+  --panel:#15171B;          /* cards */
+  --panel-2:#1B1E24;        /* raised */
+  --line:#262B33;
+  --line-soft:#1E2229;
+  --red:#FF1F26;            /* the logo's racing red: one accent, used sparingly */
+  --red-soft:rgba(255,31,38,.13);
+  --amber:#F0A33A;          /* single-use parts, bench specs */
+  --green:#5DBB7C;          /* FSM-checked */
+  --steel:#8A919C;          /* labels */
+  --bone:#EDEAE4;           /* text */
+  --soft:#C9C6C0;
+  --disp:'Chakra Petch','Arial Narrow',system-ui,sans-serif;
+  --body:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --wrap:1120px;
+  --gut-l:max(16px, env(safe-area-inset-left, 0px));
+  --gut-r:max(16px, env(safe-area-inset-right, 0px));
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} *{transition:none!important;animation:none!important} }
+body{background:var(--asphalt);color:var(--bone);font-family:var(--body);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top, 0px);z-index:30;background:var(--asphalt)}
+a{color:inherit}
+img{max-width:100%}
+h1,h2,h3{font-family:var(--disp);font-weight:700;line-height:1.08;letter-spacing:.005em;text-wrap:balance;margin:0}
+p{margin:0}
+:focus-visible{outline:2px solid var(--red);outline-offset:3px;border-radius:4px}
+.wrap{max-width:var(--wrap);margin:0 auto;padding-left:var(--gut-l);padding-right:var(--gut-r)}
+.eyebrow,.label{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--steel)}
+.num{font-variant-numeric:tabular-nums}
+
+/* ---------- the wordmark: TORQUE in brushed silver, HQ in the logo red, skewed like a part number stamped at speed,
+   a red bar under HQ ---------- */
+.brand{display:inline-flex;font-family:var(--disp);line-height:1;text-decoration:none;user-select:none;-webkit-user-select:none}
+.wm{display:block;font-weight:700;font-size:27px;letter-spacing:.03em;white-space:nowrap;transform:skewX(-12deg);transform-origin:0 100%}
+.wm-t,.wm-hq{-webkit-background-clip:text;background-clip:text;color:transparent}
+.wm-t{background-image:linear-gradient(180deg,#FFFFFF 0%,#E3E6EA 28%,#A3A9B2 50%,#ECEEF1 66%,#B6BBC3 100%)}
+.wm-hq{position:relative;margin-left:.14em;background-image:linear-gradient(180deg,#FF6A6E 0%,var(--red) 42%,#C2000A 100%)}
+.wm-hq::after{content:"";position:absolute;left:.04em;right:.02em;bottom:-.2em;height:.11em;background:var(--red)}
+.brand.big .wm{font-size:48px}
+
+/* ---------- buttons ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:0 22px;border-radius:8px;border:1px solid transparent;
+  font-family:var(--disp);font-weight:600;font-size:14px;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;cursor:pointer;transition:filter .15s,background .15s,border-color .15s}
+.btn-red{background:var(--red);color:#0B0C0E}
+.btn-red:hover{filter:brightness(1.1)}
+.btn-ghost{border-color:var(--line);color:var(--bone);background:transparent}
+.btn-ghost:hover{border-color:var(--steel)}
+.btn-sm{min-height:38px;padding:0 14px;font-size:12px}
+
+/* ---------- header ---------- */
+.top{position:sticky;top:env(safe-area-inset-top, 0px);z-index:20;background:rgba(12,13,15,.86);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line-soft)}
+.top-in{display:flex;align-items:center;gap:20px;padding-block:12px}
+.nav{display:flex;gap:22px;margin-left:auto}
+.nav a{font-family:var(--mono);font-size:12.5px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;color:var(--soft)}
+.nav a:hover{color:var(--bone)}
+@media (max-width:760px){ .nav{display:none} .top .btn{margin-left:auto} }
+
+/* ---------- hero ---------- */
+.hero{padding-block:64px 40px;overflow:hidden}
+.hero-in{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr);gap:40px;align-items:center}
+.hero-copy{display:flex;flex-direction:column;gap:22px;min-width:0}
+.hero h1{font-size:clamp(38px,5.6vw,68px)}
+.hero h1 em{font-style:normal;color:var(--red)}
+.lead{font-size:clamp(17px,1.6vw,19px);color:var(--soft);max-width:34em}
+.cta-row{display:flex;flex-wrap:wrap;gap:12px}
+.hero-facts{display:flex;flex-wrap:wrap;gap:8px 18px;font-family:var(--mono);font-size:12.5px;color:var(--steel)}
+.hero-facts span{display:inline-flex;align-items:center;gap:7px}
+.hero-facts span::before{content:"";width:6px;height:6px;background:var(--red);transform:skewX(-12deg)}
+.hero-phones{display:grid;min-width:0;padding-block:8px}
+.phone{margin:0;width:min(290px,72vw);max-width:100%;aspect-ratio:390/844;border-radius:42px;padding:9px;
+  background:linear-gradient(155deg,#30353E 0%,#16181C 45%,#0F1013 100%);box-shadow:0 30px 70px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.07)}
+.phone img{display:block;width:100%;height:100%;object-fit:cover;border-radius:34px;background:var(--panel)}
+.hero-phones .phone{grid-area:1 / 1}
+.hero-phones .phone-back{justify-self:start;align-self:start;margin-top:52px;width:min(240px,48%);opacity:.9;transform:rotate(-4deg)}
+.hero-phones .phone-front{justify-self:end;width:min(285px,60%);transform:rotate(2deg);z-index:1}
+@media (max-width:900px){
+  .hero{padding-block:40px 24px}
+  .hero-in{grid-template-columns:minmax(0,1fr);gap:28px}
+  .hero-phones .phone-back{display:none}
+  .hero-phones .phone-front{justify-self:center;transform:none;width:min(280px,76vw)}
+}
+
+/* ---------- section scaffolding ---------- */
+.band{padding-block:72px}
+.band + .band{border-top:1px solid var(--line-soft)}
+.sec-head{display:flex;flex-direction:column;gap:12px;max-width:44em;margin-bottom:36px}
+.sec-head h2{font-size:clamp(30px,3.6vw,44px)}
+.sec-head p{color:var(--soft);font-size:17px}
+@media (max-width:600px){ .band{padding-block:52px} }
+
+/* ---------- "Look one up": a live spec card ---------- */
+.bench{background:linear-gradient(180deg,var(--asphalt),#101114)}
+.bench-grid{display:grid;grid-template-columns:minmax(0,260px) minmax(0,1fr);gap:28px;align-items:start}
+.picks{display:flex;flex-direction:column;gap:8px}
+.pick{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:13px 16px;border-radius:8px;border:1px solid var(--line);background:var(--panel);
+  color:var(--soft);font:500 15px var(--body);text-align:left;cursor:pointer;transition:border-color .15s,color .15s,background .15s}
+.pick small{font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--steel)}
+.pick:hover{border-color:var(--steel);color:var(--bone)}
+.pick[aria-selected="true"]{border-color:var(--red);color:var(--bone);background:var(--panel-2)}
+.pick[aria-selected="true"] small{color:var(--red)}
+.unitsw{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-top:6px;align-self:flex-start}
+.unitsw button{min-width:72px;min-height:40px;padding:0 14px;border:0;background:transparent;color:var(--steel);font:600 13px var(--mono);letter-spacing:.04em;cursor:pointer}
+.unitsw button[aria-pressed="true"]{background:var(--red);color:#0B0C0E}
+.unitsw-label{margin-top:16px}
+@media (max-width:760px){
+  .bench-grid{grid-template-columns:minmax(0,1fr)}
+  .picks{flex-direction:row;flex-wrap:wrap}
+  .pick{width:auto;flex:1 1 calc(50% - 8px);padding:11px 13px;font-size:14px}
+  .pick small{display:none}
+}
+
+/* the card itself, as the app draws it */
+.spec{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:26px 28px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.spec-top{display:flex;align-items:flex-start;gap:14px}
+.code{flex:none;font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.08em;color:var(--steel);border:1px solid var(--line);border-radius:6px;padding:5px 9px;margin-top:4px}
+.spec h3{font-family:var(--body);font-weight:600;font-size:clamp(20px,2.2vw,26px);line-height:1.25;letter-spacing:0;text-wrap:pretty;min-width:0}
+.spec h3 .item{color:var(--red);font-family:var(--mono);font-weight:600;font-size:.8em;margin-right:6px}
+.spec h3 .qty{color:var(--steel);font-family:var(--mono);font-weight:500;font-size:.62em;margin-left:6px;white-space:nowrap}
+.readout{display:flex;align-items:flex-end;gap:16px}
+.leader{flex:1;min-width:20px;border-bottom:3px dotted var(--line);margin-bottom:.55em}
+.val{font-family:var(--disp);font-weight:700;font-size:clamp(52px,8vw,92px);line-height:.9;font-variant-numeric:tabular-nums;white-space:nowrap}
+.unit{align-self:flex-end;font-family:var(--mono);font-weight:600;font-size:13px;letter-spacing:.14em;color:var(--steel);text-transform:uppercase;margin-top:-6px;text-align:right}
+.steps{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;font-family:var(--mono);font-size:13.5px;color:var(--soft)}
+.steps b{color:var(--steel);font-weight:600;margin-right:6px}
+.steps .arr{color:var(--steel)}
+.meta{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;font-family:var(--mono);font-size:13.5px;line-height:1.55;color:var(--steel)}
+.badge{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.08em;border-radius:6px;padding:4px 9px;white-space:nowrap}
+.b-fsm{color:var(--green);border:1px solid rgba(93,187,124,.5);background:rgba(93,187,124,.08)}
+.b-bench{color:var(--amber);border:1px solid rgba(240,163,58,.5);background:rgba(240,163,58,.08)}
+.b-kit{color:var(--soft);border:1px solid var(--line)}
+.gasket{font-family:var(--mono);font-size:13.5px;font-weight:600;color:var(--amber)}
+.seqpill{align-self:flex-start;display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:13px;font-weight:600;color:#0B0C0E;background:var(--red);border-radius:7px;padding:8px 12px}
+.seqpill i{display:grid;grid-template-columns:repeat(2,5px);gap:3px}
+.seqpill i::before,.seqpill i::after{content:"";width:5px;height:5px;border-radius:50%;background:#0B0C0E;box-shadow:0 8px 0 #0B0C0E}
+@media (max-width:600px){ .spec{padding:20px} .readout{gap:10px} }
+
+/* ---------- the numbers ---------- */
+.stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--panel)}
+.stat{padding:24px 22px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.stat + .stat{border-left:1px solid var(--line)}
+.stat strong{font-family:var(--disp);font-weight:700;font-size:clamp(34px,3.6vw,46px);line-height:1;font-variant-numeric:tabular-nums}
+.stat span{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--bone)}
+.stat small{font-size:13.5px;color:var(--steel);line-height:1.45}
+@media (max-width:900px){
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .stat + .stat{border-left:0}
+  .stat{border-top:1px solid var(--line)}
+  .stat:nth-child(-n+2){border-top:0}
+  .stat:nth-child(even){border-left:1px solid var(--line)}
+  .stat:last-child{grid-column:1 / -1;border-left:0}
+}
+
+/* ---------- what's inside ---------- */
+.feats{display:flex;flex-direction:column;gap:84px}
+.feat{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:56px;align-items:center}
+.feat:nth-child(even) .feat-shot{order:2}
+.feat-shot{display:flex;justify-content:center;min-width:0}
+.feat-shot .phone{width:min(270px,68vw)}
+.feat-copy{display:flex;flex-direction:column;gap:14px;min-width:0;max-width:30em}
+.feat-copy h3{font-size:clamp(26px,2.8vw,36px)}
+.feat-copy p{color:var(--soft);font-size:17px}
+.feat-copy .tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.tag{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--soft);border:1px solid var(--line);border-radius:999px;padding:5px 11px}
+@media (max-width:800px){
+  .feats{gap:64px}
+  .feat{grid-template-columns:minmax(0,1fr);gap:24px}
+  .feat:nth-child(even) .feat-shot{order:0}
+  .feat-shot .phone{width:min(250px,66vw)}
+}
+
+/* ---------- garage floor (offline) ---------- */
+.floor{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:48px;align-items:center}
+.floor-copy{display:flex;flex-direction:column;gap:16px;min-width:0}
+.floor-copy h2{font-size:clamp(30px,3.6vw,44px)}
+.floor-copy p{color:var(--soft);font-size:17px;max-width:34em}
+.homescreen{display:flex;align-items:center;gap:18px;margin-top:8px;padding:16px 18px;border:1px solid var(--line);border-radius:14px;background:var(--panel);max-width:420px}
+.homescreen .appicon{width:64px;height:64px;flex:none;border-radius:15px;box-shadow:0 0 0 1px #30353E}
+.homescreen b{display:block;font-family:var(--disp);font-size:18px}
+.homescreen span{font-size:14px;color:var(--steel)}
+.floor-shot{display:flex;justify-content:center;min-width:0}
+.floor-shot .phone{width:min(260px,66vw)}
+@media (max-width:800px){ .floor{grid-template-columns:minmax(0,1fr);gap:28px} }
+
+/* ---------- where the numbers come from ---------- */
+.sources{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.source{display:flex;flex-direction:column;gap:12px;padding:22px;border:1px solid var(--line);border-radius:14px;background:var(--panel);min-width:0}
+.source p{color:var(--soft);font-size:15.5px}
+.source-note{margin-top:22px;font-family:var(--mono);font-size:13px;color:var(--steel)}
+@media (max-width:800px){ .sources{grid-template-columns:minmax(0,1fr)} }
+
+/* ---------- beta ---------- */
+.beta{background:radial-gradient(120% 90% at 85% 0%,rgba(255,31,38,.10),transparent 60%),var(--asphalt)}
+.beta-in{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:48px;align-items:start}
+.beta-copy{display:flex;flex-direction:column;gap:16px;min-width:0}
+.beta-copy h2{font-size:clamp(32px,4vw,50px)}
+.beta-copy p{color:var(--soft);font-size:17px;max-width:30em}
+.beta-copy ol{margin:6px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px;counter-reset:s}
+.beta-copy li{display:flex;gap:14px;align-items:baseline;color:var(--soft);counter-increment:s}
+.beta-copy li::before{content:counter(s);flex:none;width:26px;height:26px;display:grid;place-items:center;border:1px solid var(--line);border-radius:6px;font:600 12px var(--mono);color:var(--red)}
+form.signup{display:flex;flex-direction:column;gap:18px;padding:28px;border:1px solid var(--line);border-radius:16px;background:var(--panel);min-width:0}
+.field{display:flex;flex-direction:column;gap:7px;min-width:0}
+.field label,.field legend{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--soft)}
+.field .opt{color:var(--steel);font-weight:500;text-transform:none;letter-spacing:0}
+.row2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+input[type=email],input[type=text],select{width:100%;min-height:48px;padding:0 14px;border-radius:8px;border:1px solid var(--line);background:var(--asphalt);color:var(--bone);font:16px var(--body)}
+input::placeholder{color:#5E646E}
+input:focus,select:focus{outline:none;border-color:var(--red);box-shadow:0 0 0 3px var(--red-soft)}
+fieldset{border:0;margin:0;padding:0;min-width:0}
+.seg{display:flex;flex-wrap:wrap;gap:8px}
+.seg label{position:relative;display:inline-flex}
+.seg input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.seg span{display:inline-flex;align-items:center;min-height:42px;padding:0 14px;border:1px solid var(--line);border-radius:8px;font:500 14px var(--body);color:var(--soft);text-transform:none;letter-spacing:0}
+.seg input:checked + span{border-color:var(--red);color:var(--bone);background:var(--red-soft)}
+.seg input:focus-visible + span{outline:2px solid var(--red);outline-offset:2px}
+.opt-soon{margin-left:8px;font:600 9px/1 var(--mono);font-style:normal;letter-spacing:.12em;text-transform:uppercase;color:var(--steel);
+  border:1px solid var(--line);border-radius:3px;padding:3px 4px 2px 5px}
+.consent{display:flex;gap:12px;align-items:flex-start;font-size:14.5px;color:var(--soft);line-height:1.5}
+.consent input{flex:none;width:20px;height:20px;margin-top:2px;accent-color:var(--red)}
+.form-note{font-size:13.5px;color:var(--steel);line-height:1.5}
+.form-note a{color:var(--bone)}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.hint{margin:0;font-size:13.5px;color:var(--steel);line-height:1.45}
+.at{position:relative}
+.at span{position:absolute;left:14px;top:50%;transform:translateY(-50%);font:16px var(--body);color:var(--steel);pointer-events:none}
+.at input[type=text]{padding-left:33px}
+.status{display:none;padding:12px 14px;border-radius:8px;font-size:14.5px;line-height:1.5}
+.status.show{display:block}
+.status.ok{border:1px solid rgba(93,187,124,.45);background:rgba(93,187,124,.08);color:var(--bone)}
+.status.err{border:1px solid rgba(255,31,38,.5);background:var(--red-soft);color:var(--bone)}
+@media (max-width:860px){ .beta-in{grid-template-columns:minmax(0,1fr);gap:28px} }
+@media (max-width:480px){ .row2{grid-template-columns:minmax(0,1fr)} form.signup{padding:20px} }
+
+/* ---------- FAQ ---------- */
+.faq-list{display:flex;flex-direction:column;border-top:1px solid var(--line);max-width:52em}
+.faq-list details{border-bottom:1px solid var(--line)}
+.faq-list summary{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 2px;cursor:pointer;list-style:none;font-family:var(--disp);font-weight:600;font-size:19px}
+.faq-list summary::-webkit-details-marker{display:none}
+.faq-list summary::after{content:"+";flex:none;font:600 22px var(--mono);color:var(--red);transition:transform .15s}
+.faq-list details[open] summary::after{transform:rotate(45deg)}
+.faq-list details p{padding:0 2px 22px;color:var(--soft);max-width:42em}
+
+/* ---------- footer ---------- */
+footer{border-top:1px solid var(--line-soft);padding-block:48px 56px}
+.foot{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:36px;align-items:start}
+.foot p{font-family:var(--mono);font-size:12.5px;line-height:1.75;color:var(--steel);max-width:62ch}
+.foot p + p{margin-top:10px}
+.foot strong{color:var(--bone);font-weight:600}
+.foot .ig{display:inline-flex;margin-top:18px}
+@media (max-width:760px){ .foot{grid-template-columns:minmax(0,1fr)} }
+</style>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)} body{margin:0}</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap top-in">
+    <a class="brand" href="#top" aria-label="Torque HQ, back to the top">
+      <span class="wm" aria-hidden="true"><span class="wm-t">TORQUE</span><span class="wm-hq">HQ</span></span>
+    </a>
+    <nav class="nav" aria-label="Sections">
+      <a href="#inside">What's inside</a>
+      <a href="#numbers">The numbers</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <a class="btn btn-red btn-sm" href="#beta">Join the beta</a>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <div class="wrap hero-in">
+      <div class="hero-copy">
+        <p class="eyebrow">First build · Nissan 350Z · Z33 · VQ35DE</p>
+        <h1>Torque specs at your <em>fingertips</em>.</h1>
+        <p class="lead">Bolt sequences, removal order and torque specs from the factory manual. Look up a part, set your units, and keep it all on your phone for the garage, signal or not. The Nissan 350Z (VQ35DE) is the first build, with more on the way.</p>
+        <div class="cta-row">
+          <a class="btn btn-red" href="#beta">Join the beta</a>
+          <a class="btn btn-ghost" href="#inside">See what's inside</a>
+        </div>
+        <div class="hero-facts">
+          <span class="num">398 torque specs</span>
+          <span class="num">26 bolt sequences</span>
+          <span>Works offline</span>
+        </div>
+      </div>
+      <div class="hero-phones">
+        <figure class="phone phone-back"><img src="img/sequence.webp" width="780" height="1688" alt="The upper plenum's bolt sequence, on bolt 8 of 18, tightening to 44–61 in·lb."></figure>
+        <figure class="phone phone-front"><img src="img/search.webp" width="780" height="1688" alt="A search for plenum: throttle body bolts at 64–85 in·lb with a bolt sequence, and the EVAP solenoid fasteners."></figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="band bench" aria-labelledby="bench-h">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Try it</p>
+        <h2 id="bench-h">Look one up</h2>
+        <p>Five specs from the 350Z build, shown the way a card shows them. Switch the units like you would in the garage.</p>
+      </div>
+      <div class="bench-grid">
+        <div>
+          <div class="picks" role="tablist" aria-label="Pick a spec" id="picks"></div>
+          <p class="label unitsw-label" id="unitsLabel">Torque</p>
+          <div class="unitsw" role="group" aria-labelledby="unitsLabel">
+            <button type="button" id="uImp" aria-pressed="true">ft·lb</button>
+            <button type="button" id="uMet" aria-pressed="false">N·m</button>
+          </div>
+        </div>
+        <article class="spec" id="demo" role="tabpanel" aria-live="polite"></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="numbers" aria-labelledby="numbers-h">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">The numbers</p>
+        <h2 id="numbers-h">What's in the 350Z build</h2>
+      </div>
+      <div class="stats">
+        <div class="stat"><strong>398</strong><span>Torque specs</span><small>391 from the factory manual, each with its page</small></div>
+        <div class="stat"><strong>26</strong><span>Bolt sequences</span><small>Tighten and loosen, pass by pass</small></div>
+        <div class="stat"><strong>218</strong><span>Jobs</span><small>In 17 sections, 190 with a removal order</small></div>
+        <div class="stat"><strong>432</strong><span>Drawings</span><small>Tap a part to jump to its torque</small></div>
+        <div class="stat"><strong>101</strong><span>Single-use parts</span><small>Gaskets, washers and bolts flagged ⊗ replace every time</small></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="inside" aria-labelledby="inside-h">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">What's inside</p>
+        <h2 id="inside-h">Built for the job in front of you</h2>
+        <p>Every screen is a real one from the app.</p>
+      </div>
+      <div class="feats">
+        <article class="feat">
+          <div class="feat-shot"><figure class="phone"><img src="img/search.webp" width="780" height="1688" alt="Search results for plenum, each part on its own card with its torque, FSM page and single-use gasket."></figure></div>
+          <div class="feat-copy">
+            <p class="eyebrow">Search</p>
+            <h3>Type the part. Get the number.</h3>
+            <p>Search plenum, lug nuts or valve covers. Every match comes up as a card with its torque, the manual page it came from, and the gaskets and washers you replace every time.</p>
+            <div class="tags"><span class="tag">plenum</span><span class="tag">throttle body</span><span class="tag">lug nuts</span><span class="tag">valve covers</span></div>
+          </div>
+        </article>
+        <article class="feat">
+          <div class="feat-shot"><figure class="phone"><img src="img/sequence.webp" width="780" height="1688" alt="The upper plenum's tightening order, bolt 8 of 18 highlighted, with bolt lengths by position."></figure></div>
+          <div class="feat-copy">
+            <p class="eyebrow">Bolt sequences</p>
+            <h3>Follow the bolt order.</h3>
+            <p>The manual's bolt patterns play number by number, in tightening or loosening order, pass by pass. Tap the drawing to pause on the bolt you're at.</p>
+            <div class="tags"><span class="tag">Upper plenum</span><span class="tag">Valve covers</span><span class="tag">Head bolts</span><span class="tag">Main caps</span></div>
+          </div>
+        </article>
+        <article class="feat">
+          <div class="feat-shot"><figure class="phone"><img src="img/removal.webp" width="780" height="1688" alt="The cylinder heads' removal order, each part linked to its own job, with a Back to Cylinder block button."></figure></div>
+          <div class="feat-copy">
+            <p class="eyebrow">Removal order</p>
+            <h3>Take it apart in the right order.</h3>
+            <p>Each job lists what comes off first. Tap the name of another job to jump straight to it, then Back takes you to the step you were on.</p>
+          </div>
+        </article>
+        <article class="feat">
+          <div class="feat-shot"><figure class="phone"><img src="img/toolbox.webp" width="780" height="1688" alt="A preview of the front shock's Toolbox, coming soon: a 3/8 inch ratchet and sockets, a 3/8 inch torque wrench for 26–62 ft·lb, and a strut spring compressor."></figure></div>
+          <div class="feat-copy">
+            <p class="eyebrow">Toolbox</p>
+            <h3>Know the tools before you start.</h3>
+            <p>Each job's Toolbox will list the tools you need and the ones that are nice to have, down to which torque wrench each bolt takes. Every size is being checked on a real 350Z before it goes in.</p>
+            <div class="tags"><span class="tag">Coming soon</span></div>
+          </div>
+        </article>
+        <article class="feat">
+          <div class="feat-shot"><figure class="phone"><img src="img/units.webp" width="780" height="1688" alt="The Units sheet: Imperial or Metric to start from, Metric picked, then a switch for each line: torque, pressures, temperature, fluids, lengths, weights, speed."></figure></div>
+          <div class="feat-copy">
+            <p class="eyebrow">Units</p>
+            <h3>Your units, line by line.</h3>
+            <p>Torque in ft·lb or N·m, pressure in psi or kPa, temperature in °F or °C. Pick Imperial or Metric, then change any line. The app only shows the unit you picked.</p>
+          </div>
+        </article>
+        <article class="feat">
+          <div class="feat-shot"><figure class="phone"><img src="img/filters.webp" width="780" height="1688" alt="Oil filter part numbers from Nissan, Fram, Wix and others, standard and bigger sizes side by side."></figure></div>
+          <div class="feat-copy">
+            <p class="eyebrow">Parts</p>
+            <h3>Buy the right filter.</h3>
+            <p>Oil and air filter numbers from Nissan, Fram, Wix, Purolator, K&amp;N and more, side by side. Plus the battery that fits: a Group 35 with 640 CCA or more.</p>
+            <div class="tags"><span class="tag">PH6607</span><span class="tag">PH7317</span><span class="tag">Group 35</span></div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" aria-labelledby="floor-h">
+    <div class="wrap floor">
+      <div class="floor-copy">
+        <p class="eyebrow">In the garage</p>
+        <h2 id="floor-h">No signal under the car? No problem.</h2>
+        <p>Add it to your home screen from Safari or Chrome and it opens like an app. The whole manual stays on your phone, so it works in a basement garage or at the track. No app store needed, on iPhone or Android.</p>
+        <div class="homescreen">
+          <img class="appicon" src="img/icon-192.png" width="64" height="64" alt="">
+          <div><b>Torque HQ</b><span>On your home screen, next to your other apps</span></div>
+        </div>
+      </div>
+      <div class="floor-shot"><figure class="phone"><img src="img/home.webp" width="780" height="1688" alt="The app's home screen: the Torque HQ wordmark, 398 specs, units set to Imperial, the search box and its sections, from General Info to Fuel."></figure></div>
+    </div>
+  </section>
+
+  <section class="band" aria-labelledby="src-h">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Where the numbers come from</p>
+        <h2 id="src-h">Every number says where it's from</h2>
+        <p>Each card carries a badge, so you always know if a value came from the manual, from the bench or from a kit maker.</p>
+      </div>
+      <div class="sources">
+        <div class="source"><span class="badge b-fsm">FSM ✓</span><p>Transcribed from the Nissan factory service manual page cited on the card. 2003 350Z, revised April 2004.</p></div>
+        <div class="source"><span class="badge b-bench">BENCH SPEC</span><p>Tested on the bench and labelled that way. Never mixed in with the manual's numbers.</p></div>
+        <div class="source"><span class="badge b-kit">ARP KIT · JWT SPEC</span><p>From the kit maker's own instructions, for those parts only, in the manual's order.</p></div>
+      </div>
+      <p class="source-note">Torque applies when tightening. Loosening has no torque spec, only the order. Always check a spec matches your model year.</p>
+    </div>
+  </section>
+
+  <section class="band beta" id="beta" aria-labelledby="beta-h">
+    <div class="wrap beta-in">
+      <div class="beta-copy">
+        <p class="eyebrow">Open beta · coming soon</p>
+        <h2 id="beta-h">Get on the beta list</h2>
+        <p>The open beta for the 350Z (VQ35DE) build is coming soon. Leave your email and Instagram, and you'll get an invite when it opens. Drive something else? Tell us, so we know which build to do next.</p>
+        <ol>
+          <li>Join the list with your email and Instagram.</li>
+          <li>We look at your build, then email your invite link.</li>
+          <li>Add it to your home screen and tell us what's missing.</li>
+        </ol>
+      </div>
+      <form class="signup" id="signup" novalidate>
+        <div class="field">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" autocomplete="email" placeholder="you@example.com" required>
+        </div>
+        <div class="field">
+          <label for="fname">First name <span class="opt">(optional)</span></label>
+          <input type="text" id="fname" name="first_name" autocomplete="given-name">
+        </div>
+        <div class="field">
+          <label for="ig">Instagram</label>
+          <div class="at"><span aria-hidden="true">@</span><input type="text" id="ig" name="instagram" placeholder="yourhandle" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" required aria-describedby="igHint"></div>
+          <p class="hint" id="igHint">We look at your page to see your build before sending invites.</p>
+        </div>
+        <div class="field">
+          <label for="yt">YouTube channel <span class="opt">(optional)</span></label>
+          <input type="text" id="yt" name="youtube" placeholder="@yourchannel or a link" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
+        </div>
+        <fieldset class="field">
+          <legend>What do you drive? <span class="opt">(optional)</span></legend>
+          <div class="seg">
+            <label><input type="radio" name="car" id="carDE" value="350Z 2003-2006 VQ35DE"><span>350Z · 2003–06 (VQ35DE)</span></label>
+            <label><input type="radio" name="car" id="carHR" value="350Z 2007-2009 VQ35HR"><span>350Z · 2007–09 (VQ35HR) <em class="opt-soon">Coming soon</em></span></label>
+            <label><input type="radio" name="car" id="carOther" value="Other"><span>Something else</span></label>
+          </div>
+        </fieldset>
+        <div class="field" id="otherCarField" hidden>
+          <label for="otherCar">Year, make and model</label>
+          <input type="text" id="otherCar" name="other_car" placeholder="2015 Subaru WRX">
+        </div>
+        <fieldset class="field">
+          <legend>Gearbox <span class="opt">(optional)</span></legend>
+          <div class="seg">
+            <label><input type="radio" name="trans" id="trMT" value="Manual"><span>Manual</span></label>
+            <label><input type="radio" name="trans" id="trAT" value="Automatic"><span>Automatic</span></label>
+          </div>
+        </fieldset>
+        <div class="hp" aria-hidden="true"><label for="website">Leave this empty</label><input type="text" id="website" name="website" tabindex="-1" autocomplete="off"></div>
+        <label class="consent" for="consent"><input type="checkbox" id="consent" name="consent" required><span>Email me my beta invite and news about Torque HQ. I can unsubscribe any time.</span></label>
+        <button class="btn btn-red" type="submit" id="send">Request an invite</button>
+        <p class="status" id="status" role="status"></p>
+        <p class="form-note">We only use your email for the beta and app news, and your Instagram and YouTube to see your build. Every email has an unsubscribe link.</p>
+        <p class="form-note" id="dmNote" hidden>Questions? <a id="dmLink" href="#" target="_blank" rel="noopener">DM us on Instagram</a>.</p>
+      </form>
+    </div>
+  </section>
+
+  <section class="band" id="faq" aria-labelledby="faq-h">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">FAQ</p>
+        <h2 id="faq-h">Questions</h2>
+      </div>
+      <div class="faq-list">
+        <details>
+          <summary>Which cars does it cover?</summary>
+          <p>The first build is the Nissan 350Z (Z33). Its specs come from the 2003 factory service manual with the VQ35DE engine, so check each one against your model year. The 2007–09 cars have the VQ35HR engine, which is different on top; their build is coming soon.</p>
+        </details>
+        <details>
+          <summary>Will you add my car?</summary>
+          <p>That's the plan. Torque HQ is built to hold more builds. Tell us what you drive when you join the list; it helps decide which build comes next.</p>
+        </details>
+        <details>
+          <summary>Do I need an app store?</summary>
+          <p>No. It runs in Safari or Chrome. Add it to your home screen and it opens like any other app.</p>
+        </details>
+        <details>
+          <summary>Does it work without signal?</summary>
+          <p>Yes. Once it's on your phone, the whole manual is stored on it, drawings included.</p>
+        </details>
+        <details>
+          <summary>How do beta invites work?</summary>
+          <p>Join the list and we'll look at your build on Instagram. When the open beta starts, you'll get an email with your invite link.</p>
+        </details>
+        <details>
+          <summary>Is this made by Nissan?</summary>
+          <p>No. Torque HQ is an independent reference and isn't affiliated with or endorsed by Nissan or any other carmaker.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <div>
+      <a class="brand big" href="#top" aria-label="Torque HQ, back to the top">
+        <span class="wm" aria-hidden="true"><span class="wm-t">TORQUE</span><span class="wm-hq">HQ</span></span>
+      </a>
+      <div><a class="btn btn-ghost btn-sm ig" id="igLink" href="#" target="_blank" rel="noopener" hidden>Follow on Instagram</a></div>
+    </div>
+    <div>
+      <p><strong>Torque applies when tightening.</strong> Loosening sequences carry no torque spec, only the order.</p>
+      <p>FSM ✓ values are transcribed from the Nissan factory service manual page cited on each card (2003 350Z, revised April 2004). Confirm it matches your model year.</p>
+      <p>Torque HQ is an independent reference and is not affiliated with or endorsed by Nissan Motor Co. or any other carmaker. 350Z is a trademark of Nissan.</p>
+      <p>© <span id="yr">2026</span> Torque HQ</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ---- site settings: fill these in when you have them ---- */
+const SITE = {
+  instagram: "",   /* your handle, e.g. "torquehq": shows Follow on Instagram in the footer and "DM us" under the form */
+  live: true,      /* true on the real site (the Vercel package sets it): the form sends sign-ups to /api/signup */
+};
+
+/* ---- "Look one up": five real cards from the app's data ---- */
+const DEMO = [
+  { label:"Lug nuts", tag:"WT", code:"WT", qty:5, name:"Wheel lug nuts",
+    imp:["73","93"], iu:"ft·lb", met:["98.1","127"], note:"Five per wheel", src:"FSM WT-42" },
+  { label:"Oil drain plug", tag:"EM", code:"EM", item:"12", name:"Oil pan drain plug",
+    imp:["22","28"], iu:"ft·lb", met:["29.4","39.2"], note:"Washer goes on in the direction shown (*1 on the drawing)", src:"FSM EM-26 / LU-8",
+    gasket:"Drain plug washer #13" },
+  { label:"Spark plugs", tag:"EM", code:"EM", item:"2", qty:6, name:"Spark plugs",
+    imp:["15","21"], iu:"ft·lb", met:["19.6","29.4"], note:{ imp:"NGK PLFR5A-11 · gap 0.043 in", met:"NGK PLFR5A-11 · gap 1.1 mm" }, src:"FSM EM-33 / EM-133" },
+  { label:"Valve covers", tag:"EM", code:"EM", item:"4 + 8", qty:20, name:"Valve cover bolts",
+    steps:[{ imp:["9","26"], met:["0.96","2.96"] }, { imp:["65","82"], met:["7.33","9.33"] }], iu:"in·lb",
+    note:"10 per bank · two passes in FSM order", src:"FSM EM-41 / EM-133", gasket:"Valve cover gaskets #7", seq:true },
+  { label:"Caliper bracket", tag:"BR", code:"BR", item:"19", qty:2, name:"Caliper bracket bolts",
+    imp:["113","114"], iu:"ft·lb", met:["152.1","154.9"], note:"Torque member to the knuckle · faces, bolts and washers free of oil and water", src:"FSM BR-25 / BR-27" }
+];
+const ORD = ["1st", "2nd", "3rd"];
+let pick = 0, metric = false;
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+const range = v => v[0] === v[1] ? v[0] : v[0] + "–" + v[1];
+
+function renderPicks(){
+  $("#picks").innerHTML = DEMO.map((d, i) =>
+    '<button type="button" class="pick" role="tab" id="pick' + i + '" aria-controls="demo" aria-selected="' + (i === pick) + '">' +
+      esc(d.label) + '<small>' + esc(d.tag) + '</small></button>').join("");
+}
+function renderCard(){
+  const d = DEMO[pick];
+  const unit = metric ? "N·m" : d.iu;
+  const last = d.steps ? d.steps[d.steps.length - 1] : d;
+  const big = range(metric ? last.met : last.imp);
+  const note = typeof d.note === "string" ? d.note : (metric ? d.note.met : d.note.imp);
+  const steps = d.steps ? '<div class="steps" aria-label="Tightening steps">' + d.steps.map((s, i) =>
+      '<span><b>' + ORD[i] + '</b>' + esc(range(metric ? s.met : s.imp)) + '</span>').join('<span class="arr" aria-hidden="true">→</span>') + '</div>' : "";
+  const item = d.item ? '<span class="item">' + d.item.split("+").map(x => "#" + x.trim()).join(" + ") + '</span>' : "";
+  $("#demo").innerHTML =
+    '<div class="spec-top"><span class="code">' + esc(d.code) + '</span><h3>' + item + esc(d.name) + (d.qty ? '<span class="qty">×' + d.qty + '</span>' : "") + '</h3></div>' +
+    '<div><div class="readout"><span class="leader" aria-hidden="true"></span><span class="val num">' + esc(big) + '</span></div>' +
+      '<div class="unit">' + esc(unit) + '</div></div>' + steps +
+    '<div class="meta"><span class="badge b-fsm">FSM ✓</span><span>' + esc(note) + ' · ' + esc(d.src) + '</span></div>' +
+    (d.gasket ? '<p class="gasket">⊗ ' + esc(d.gasket) + ' — replace every time</p>' : "") +
+    (d.seq ? '<span class="seqpill"><i aria-hidden="true"></i>Bolt sequence</span>' : "");
+}
+function setUnits(m){
+  metric = m;
+  $("#uImp").setAttribute("aria-pressed", String(!m));
+  $("#uMet").setAttribute("aria-pressed", String(m));
+  renderCard();
+}
+$("#picks").addEventListener("click", e => {
+  const b = e.target.closest(".pick");
+  if (!b) return;
+  pick = +b.id.replace("pick", "");
+  renderPicks(); renderCard();
+  $("#pick" + pick).focus();
+});
+$("#picks").addEventListener("keydown", e => {               /* arrow keys move between the tabs */
+  if (!["ArrowDown", "ArrowRight", "ArrowUp", "ArrowLeft"].includes(e.key)) return;
+  e.preventDefault();
+  pick = (pick + (e.key === "ArrowDown" || e.key === "ArrowRight" ? 1 : DEMO.length - 1)) % DEMO.length;
+  renderPicks(); renderCard();
+  $("#pick" + pick).focus();
+});
+$("#uImp").addEventListener("click", () => setUnits(false));
+$("#uMet").addEventListener("click", () => setUnits(true));
+renderPicks();
+renderCard();
+
+/* ---- beta sign-up: checked here, then sent to /api/signup on the live site (this preview copy sends nothing) ---- */
+const form = $("#signup"), status = $("#status");
+function say(kind, text){ status.className = "status show " + kind; status.textContent = text; }
+/* Instagram (required): "@handle", "handle" or a profile link, kept as the handle */
+function igHandle(v){
+  v = v.trim();
+  const m = /instagram\.com\/([A-Za-z0-9._]+)/i.exec(v);
+  if (m) v = m[1];
+  v = v.replace(/^@+/, "");
+  return /^[A-Za-z0-9._]{1,30}$/.test(v) ? v.toLowerCase() : "";
+}
+/* YouTube (optional): "@handle" or a youtube.com link; null when left blank, "" when it isn't either */
+function ytChannel(v){
+  v = v.trim();
+  if (!v) return null;
+  if (/^(https?:\/\/)?((www|m)\.)?youtube\.com\/\S+$/i.test(v)) return /^https?:\/\//i.test(v) ? v : "https://" + v;
+  const h = v.replace(/^@/, "");
+  return /^[\w.-]{3,30}$/.test(h) ? "@" + h : "";
+}
+form.addEventListener("submit", e => {
+  e.preventDefault();
+  const email = $("#email").value.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)){ say("err", "Enter your email address, like you@example.com."); $("#email").focus(); return; }
+  const ig = igHandle($("#ig").value);
+  if (!ig){ say("err", "Enter your Instagram handle, like @your350z. We use it to see your build."); $("#ig").focus(); return; }
+  $("#ig").value = ig;
+  const yt = ytChannel($("#yt").value);
+  if (yt === ""){ say("err", "Enter your YouTube channel's @handle or link, or leave it blank."); $("#yt").focus(); return; }
+  if (yt) $("#yt").value = yt;
+  if (!$("#consent").checked){ say("err", "Tick the box so we're allowed to email you the invite."); $("#consent").focus(); return; }
+  if (!SITE.live){ say("ok", "This is the preview copy of the site, so nothing was sent. Sign-ups work on the live site."); return; }
+  const send = $("#send"), pick = name => (form.querySelector('input[name="' + name + '"]:checked') || {}).value || "";
+  send.disabled = true;
+  say("ok", "Sending…");
+  const body = { email, first_name: $("#fname").value.trim(), instagram: ig, youtube: yt || "", car: pick("car"),
+                 other_car: pick("car") === "Other" ? $("#otherCar").value.trim() : "", gearbox: pick("trans"), consent: true, website: $("#website").value };
+  fetch("/api/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+    .then(r => r.json().catch(() => ({})).then(d => ({ ok: r.ok, d })))
+    .then(({ ok, d }) => {
+      if (!ok){ say("err", d.error || "That didn't go through. Try again in a minute."); return; }
+      say("ok", d.updated ? "You were already on the list, so we updated your details." : "You're on the list. We'll look at your build and email your invite when the open beta starts.");
+      form.reset();
+      $("#otherCarField").hidden = true;
+    })
+    .catch(() => say("err", "Couldn't reach the site. Check your connection and try again."))
+    .finally(() => { send.disabled = false; });
+});
+
+/* "Something else" asks which car */
+form.addEventListener("change", e => {
+  if (e.target.name !== "car") return;
+  const other = e.target.value === "Other";
+  $("#otherCarField").hidden = !other;
+  if (other) $("#otherCar").focus();
+});
+
+/* ---- footer ---- */
+const IG = String(SITE.instagram || "").trim().replace(/^https?:\/\/(www\.)?instagram\.com\//i, "").replace(/^@+/, "").replace(/[/?#].*$/, "");
+if (/^[A-Za-z0-9._]{1,30}$/.test(IG)){
+  $("#igLink").href = "https://www.instagram.com/" + IG + "/"; $("#igLink").hidden = false;
+  $("#dmLink").href = "https://ig.me/m/" + IG; $("#dmNote").hidden = false;
+}
+$("#yr").textContent = new Date().getFullYear();
+</script>
+</body>
+</html>
