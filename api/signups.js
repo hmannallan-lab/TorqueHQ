@@ -1,23 +1,14 @@
 /* GET /api/signups — the sign-up list as a spreadsheet (CSV), behind a password.
    Set ADMIN_KEY in Vercel (Settings > Environment Variables) to a long password; the browser asks for it
-   (any username, that password). /api/signups?count=1 shows just the number. No ADMIN_KEY: the page doesn't exist. */
+   (any username, that password). No ADMIN_KEY: the page doesn't exist.
+     ?count=1     just the number
+     ?sync=1      sends everyone not yet in MailerLite (signed up before it was connected, or it failed) to MailerLite
+     ?sync=all    sends everyone again (safe: MailerLite updates them, and nobody gets the welcome email twice) */
 const crypto = require("crypto");
+const { redis, toMailerLite, redisReady, mailerLiteReady } = require("./signup.js");
 
-const REDIS_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-const REDIS_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
-const COLUMNS = ["signed_up", "updated", "email", "first_name", "instagram", "instagram_page", "youtube", "car", "other_car", "gearbox", "consent", "consent_at"];
-
-async function redis(...cmd) {
-  const r = await fetch(REDIS_URL, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${REDIS_TOKEN}`, "Content-Type": "application/json" },
-    body: JSON.stringify(cmd),
-  });
-  const d = await r.json().catch(() => ({}));
-  if (!r.ok || d.error) throw new Error(d.error || `Redis answered ${r.status}`);
-  return d.result;
-}
-
+const COLUMNS = ["signed_up", "updated", "email", "first_name", "instagram", "instagram_page", "youtube", "car", "other_car", "gearbox",
+                 "consent", "consent_at", "mailerlite"];
 const digest = s => crypto.createHash("sha256").update(String(s)).digest();
 /* a cell for Excel or Sheets: quoted, and never read as a formula */
 const cell = v => {
@@ -25,6 +16,7 @@ const cell = v => {
   if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
   return '"' + s.replace(/"/g, '""') + '"';
 };
+const text = (res, code, body) => { res.setHeader("Content-Type", "text/plain; charset=utf-8"); return res.status(code).send(body); };
 
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
@@ -37,7 +29,7 @@ module.exports = async function handler(req, res) {
     res.setHeader("WWW-Authenticate", 'Basic realm="Torque HQ sign-ups", charset="UTF-8"');
     return res.status(401).send("Password needed");
   }
-  if (!REDIS_URL || !REDIS_TOKEN) return res.status(503).send("Sign-ups aren't connected yet: add Upstash for Redis in Vercel > Storage.");
+  if (!redisReady) return text(res, 503, "Sign-ups aren't connected yet: add Upstash for Redis in Vercel > Storage.");
 
   try {
     const flat = (await redis("HGETALL", "signups")) || [];
@@ -46,17 +38,30 @@ module.exports = async function handler(req, res) {
       try { rows.push(JSON.parse(flat[i + 1])); } catch (e) { rows.push({ email: flat[i] }); }
     }
     rows.sort((a, b) => String(a.signed_up || "").localeCompare(String(b.signed_up || "")));
-    if (req.query && req.query.count) {
-      res.setHeader("Content-Type", "text/plain; charset=utf-8");
-      return res.status(200).send(`${rows.length} sign-up${rows.length === 1 ? "" : "s"}`);
+    const q = req.query || {};
+
+    if (q.sync) {
+      if (!mailerLiteReady) return text(res, 400, "MailerLite isn't connected: add MAILERLITE_API_KEY in Vercel, then redeploy.");
+      const todo = rows.filter(r => r.email && (q.sync === "all" || !String(r.mailerlite || "").startsWith("ok")));
+      let ok = 0;
+      const failed = [];
+      for (const r of todo) {
+        r.mailerlite = await toMailerLite(r);
+        await redis("HSET", "signups", r.email, JSON.stringify(r));
+        if (r.mailerlite.startsWith("ok")) ok++; else failed.push(`${r.email}: ${r.mailerlite}`);
+      }
+      return text(res, 200, `Sent ${todo.length} of ${rows.length} sign-ups to MailerLite: ${ok} ok, ${failed.length} failed.` +
+        (failed.length ? "\n\n" + failed.join("\n") : ""));
     }
+    if (q.count) return text(res, 200, `${rows.length} sign-up${rows.length === 1 ? "" : "s"}`);
+
     const lines = [COLUMNS.join(",")].concat(rows.map(r => COLUMNS.map(c =>
       cell(c === "instagram_page" ? (r.instagram ? `https://www.instagram.com/${r.instagram}/` : "") : r[c])).join(",")));
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", 'attachment; filename="torque-hq-signups.csv"');
     return res.status(200).send("﻿" + lines.join("\r\n") + "\r\n");
   } catch (e) {
-    console.error("signups export failed:", e.message);
-    return res.status(500).send("Couldn't read the sign-ups. Try again in a minute.");
+    console.error("signups failed:", e.message);
+    return text(res, 500, "Couldn't read the sign-ups. Try again in a minute.");
   }
 };
