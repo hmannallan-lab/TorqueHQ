@@ -1,13 +1,17 @@
-/* POST /api/signup — one beta sign-up from the website's form, kept in Upstash Redis.
-   Connect Upstash in Vercel (Storage > Upstash for Redis) and it sets KV_REST_API_URL and KV_REST_API_TOKEN
-   (or UPSTASH_REDIS_REST_URL / _TOKEN); until then the form says sign-ups aren't open yet.
+/* POST /api/signup — one beta sign-up from the website's form, kept in Upstash Redis and, once it's connected,
+   added to the MailerLite waitlist group too (joining that group starts the welcome email).
    Each email is one entry in the "signups" hash, so signing up twice updates it instead of adding a copy.
-   It keeps the consent wording and time with each sign-up, and allows 10 tries an hour from one network. */
+   It keeps the consent wording and time with each sign-up, and allows 10 tries an hour from one network.
+   Redis: Upstash, connected in Vercel (KV_REST_API_URL / KV_REST_API_TOKEN, or UPSTASH_REDIS_REST_URL / _TOKEN).
+   MailerLite (optional): MAILERLITE_API_KEY, and MAILERLITE_GROUP if the group isn't called "Beta waitlist".
+   api/signups.js uses the Redis and MailerLite code below too (every file in api/ is a page, so it lives here). */
 const crypto = require("crypto");
 
 const REDIS_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
 const REDIS_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
-const CONSENT = "Email me my beta invite and news about Torque HQ. I can unsubscribe any time.";
+const ML_KEY = process.env.MAILERLITE_API_KEY;
+const ML_GROUP = (process.env.MAILERLITE_GROUP || "Beta waitlist").trim();
+const ML_API = (process.env.MAILERLITE_API_URL || "https://connect.mailerlite.com/api").replace(/\/$/, "");
 
 async function redis(...cmd) {
   const r = await fetch(REDIS_URL, {
@@ -21,6 +25,49 @@ async function redis(...cmd) {
 }
 
 const clean = (v, max) => String(v == null ? "" : v).replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, max);
+
+async function ml(path, init) {
+  const r = await fetch(ML_API + path, Object.assign({}, init, {
+    headers: { Authorization: `Bearer ${ML_KEY}`, "Content-Type": "application/json", Accept: "application/json" },
+    signal: AbortSignal.timeout(6000),
+  }));
+  const d = await r.json().catch(() => ({}));
+  return { ok: r.ok, status: r.status, d };
+}
+
+let groupId = /^\d+$/.test(ML_GROUP) ? ML_GROUP : "";             // a group named rather than numbered is looked up once
+async function mlGroup() {
+  if (groupId) return groupId;
+  const r = await ml("/groups?limit=100&filter[name]=" + encodeURIComponent(ML_GROUP));
+  if (!r.ok) throw new Error(`MailerLite groups answered ${r.status}${r.d && r.d.message ? ": " + r.d.message : ""}`);
+  const g = (r.d.data || []).find(x => String(x.name || "").trim().toLowerCase() === ML_GROUP.toLowerCase());
+  if (!g) throw new Error(`no MailerLite group called "${ML_GROUP}"`);
+  return (groupId = String(g.id));
+}
+
+/* Add or update the sign-up in MailerLite, in the waitlist group (joining it is what starts the welcome email).
+   Returns what to keep in the sign-up's "mailerlite" column: "" (not connected), "ok", "ok (…)" or "failed: …". */
+async function toMailerLite(rec) {
+  if (!ML_KEY) return "";
+  try {
+    const group = await mlGroup();
+    const car = rec.car === "Other" ? (rec.other_car || "Other") : rec.car;
+    const fields = {};
+    for (const [k, v] of [["name", rec.first_name], ["instagram", rec.instagram], ["youtube", rec.youtube], ["car", car], ["gearbox", rec.gearbox]]) if (v) fields[k] = v;
+    const send = f => ml("/subscribers", { method: "POST", body: JSON.stringify({ email: rec.email, fields: f, groups: [group] }) });
+    let r = await send(fields);
+    if (r.status === 422 && Object.keys(fields).some(k => k !== "name")) {   // a field MailerLite doesn't have: send the rest
+      r = await send(fields.name ? { name: fields.name } : {});
+      if (r.ok) return "ok (add the instagram, youtube, car and gearbox fields in MailerLite to keep those too)";
+    }
+    if (!r.ok) return `failed: MailerLite answered ${r.status}${r.d && r.d.message ? ": " + r.d.message : ""}`;
+    return "ok";
+  } catch (e) {
+    return "failed: " + (e.name === "TimeoutError" ? "MailerLite took too long" : e.message);
+  }
+}
+
+const CONSENT = "Email me my beta invite and news about Torque HQ. I can unsubscribe any time.";
 
 function instagram(v) {
   let h = clean(v, 200);
@@ -36,7 +83,7 @@ module.exports = async function handler(req, res) {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Use POST." });
   }
-  if (!REDIS_URL || !REDIS_TOKEN) return res.status(503).json({ error: "Sign-ups aren't open yet. Try again soon." });
+  if (!(REDIS_URL && REDIS_TOKEN)) return res.status(503).json({ error: "Sign-ups aren't open yet. Try again soon." });
 
   let b = req.body;
   if (typeof b === "string") { try { b = JSON.parse(b); } catch (e) { b = null; } }
@@ -65,6 +112,7 @@ module.exports = async function handler(req, res) {
       youtube: clean(b.youtube, 200), car: clean(b.car, 60), other_car: clean(b.other_car, 80), gearbox: clean(b.gearbox, 20),
       consent: CONSENT, consent_at: now, source: "website",
     };
+    record.mailerlite = await toMailerLite(record);                             // never stops the sign-up: a failure is noted
     await redis("HSET", "signups", email, JSON.stringify(record));
     return res.status(200).json({ ok: true, updated: Boolean(prev) });
   } catch (e) {
@@ -72,3 +120,6 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: "Something went wrong on our end. Try again in a minute." });
   }
 };
+
+/* for api/signups.js */
+Object.assign(module.exports, { redis, toMailerLite, redisReady: Boolean(REDIS_URL && REDIS_TOKEN), mailerLiteReady: Boolean(ML_KEY) });
