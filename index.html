@@ -679,7 +679,7 @@ form.addEventListener("submit", e => {
     .then(r => r.json().catch(() => ({})).then(d => ({ ok: r.ok, d })))
     .then(({ ok, d }) => {
       if (!ok){ say("err", d.error || "That didn't go through. Try again in a minute."); return; }
-      say("ok", d.updated ? "You were already on the list, so we updated your details." : "You're on the list. We'll look at your build and email your invite when the open beta starts.If our emails aren't in your inbox, check your Promotions tab.");
+      say("ok", d.updated ? "You were already on the list, so we updated your details." : "You're on the list. We'll look at your build and email your invite when the open beta starts. If our emails aren't in your inbox, check your Promotions tab.");
       form.reset();
       $("#otherCarField").hidden = true;
     })

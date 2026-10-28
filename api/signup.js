@@ -4,13 +4,15 @@
    It keeps the consent wording and time with each sign-up, and allows 10 tries an hour from one network.
    Redis: Upstash, connected in Vercel (KV_REST_API_URL / KV_REST_API_TOKEN, or UPSTASH_REDIS_REST_URL / _TOKEN).
    MailerLite (optional): MAILERLITE_API_KEY, and MAILERLITE_GROUP if the group isn't called "Beta waitlist".
-   api/signups.js uses the Redis and MailerLite code below too (every file in api/ is a page, so it lives here). */
+   api/signups.js and api/admin.js use the Redis, MailerLite and password code below too (every file in api/ is a page,
+   so it lives here). */
 const crypto = require("crypto");
 
 const REDIS_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
 const REDIS_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
 const ML_KEY = process.env.MAILERLITE_API_KEY;
 const ML_GROUP = (process.env.MAILERLITE_GROUP || "Beta waitlist").trim();
+const ML_TESTERS = (process.env.MAILERLITE_TESTER_GROUP || "Beta testers").trim();
 const ML_API = (process.env.MAILERLITE_API_URL || "https://connect.mailerlite.com/api").replace(/\/$/, "");
 
 async function redis(...cmd) {
@@ -35,15 +37,18 @@ async function ml(path, init) {
   return { ok: r.ok, status: r.status, d };
 }
 
-let groupId = /^\d+$/.test(ML_GROUP) ? ML_GROUP : "";             // a group named rather than numbered is looked up once
-async function mlGroup() {
-  if (groupId) return groupId;
-  const r = await ml("/groups?limit=100&filter[name]=" + encodeURIComponent(ML_GROUP));
+const groupIds = {};                                               // a group named rather than numbered is looked up once
+async function mlGroup(name = ML_GROUP) {
+  if (/^\d+$/.test(name)) return name;
+  const k = name.toLowerCase();
+  if (groupIds[k]) return groupIds[k];
+  const r = await ml("/groups?limit=100&filter[name]=" + encodeURIComponent(name));
   if (!r.ok) throw new Error(`MailerLite groups answered ${r.status}${r.d && r.d.message ? ": " + r.d.message : ""}`);
-  const g = (r.d.data || []).find(x => String(x.name || "").trim().toLowerCase() === ML_GROUP.toLowerCase());
-  if (!g) throw new Error(`no MailerLite group called "${ML_GROUP}"`);
-  return (groupId = String(g.id));
+  const g = (r.d.data || []).find(x => String(x.name || "").trim().toLowerCase() === k);
+  if (!g) throw new Error(`no MailerLite group called "${name}"`);
+  return (groupIds[k] = String(g.id));
 }
+const mlSays = r => `MailerLite answered ${r.status}${r.d && r.d.message ? ": " + r.d.message : ""}`;
 
 /* Add or update the sign-up in MailerLite, in the waitlist group (joining it is what starts the welcome email).
    Returns what to keep in the sign-up's "mailerlite" column: "" (not connected), "ok", "ok (…)" or "failed: …". */
@@ -60,11 +65,71 @@ async function toMailerLite(rec) {
       r = await send(fields.name ? { name: fields.name } : {});
       if (r.ok) return "ok (add the instagram, youtube, car and gearbox fields in MailerLite to keep those too)";
     }
-    if (!r.ok) return `failed: MailerLite answered ${r.status}${r.d && r.d.message ? ": " + r.d.message : ""}`;
+    if (!r.ok) return "failed: " + mlSays(r);
     return "ok";
   } catch (e) {
     return "failed: " + (e.name === "TimeoutError" ? "MailerLite took too long" : e.message);
   }
+}
+
+/* Invite emails are on once MailerLite is connected and has a "Beta testers" group (MAILERLITE_TESTER_GROUP).
+   The group's id, or "" when there's no such group (then invites are sent by hand, as Instagram DMs). A missing group
+   is looked up again after 20 seconds, so making it in MailerLite turns the emails on without a redeploy. */
+let noTesterGroupUntil = 0;
+async function testerGroup() {
+  if (!ML_KEY || Date.now() < noTesterGroupUntil) return "";
+  try {
+    return await mlGroup(ML_TESTERS);
+  } catch (e) {
+    if (!/^no MailerLite group called/.test(e.message)) throw e;
+    noTesterGroupUntil = Date.now() + 20000;
+    return "";
+  }
+}
+async function inviteEmailsOn() {                                   // for the admin page: unsure (MailerLite down) counts as on
+  try { return Boolean(await testerGroup()); } catch (e) { return true; }
+}
+
+/* Email a tester their invite: their code and link go into their MailerLite fields first, and only once MailerLite has
+   kept both are they added to the testers group (joining it is what sends the invite email), so the email never goes
+   out without them. Returns what the admin page shows: "" (invite emails not set up), "ok" or "failed: …". */
+async function inviteToMailerLite(rec, code, link) {
+  if (!ML_KEY) return "";
+  const FIELDS = "failed: add the invite_code and invite_link fields in MailerLite (Subscribers > Fields), then invite again";
+  try {
+    const group = await testerGroup();
+    if (!group) return "";
+    const fields = { invite_code: code, invite_link: link };
+    if (rec.first_name) fields.name = rec.first_name;
+    const r = await ml("/subscribers", { method: "POST", body: JSON.stringify({ email: rec.email, fields }) });
+    if (r.status === 422 && /field/i.test(JSON.stringify(r.d || {}))) return FIELDS;
+    if (!r.ok) return "failed: " + mlSays(r);
+    const sub = (r.d && r.d.data) || {};
+    if (!sub.fields || sub.fields.invite_code !== code || sub.fields.invite_link !== link) return FIELDS;
+    if (sub.status && sub.status !== "active") return `failed: MailerLite won't email them (they're ${sub.status}), so send them the link yourself`;
+    if (!sub.id) return "failed: MailerLite didn't answer with the subscriber";
+    const g = await ml(`/subscribers/${encodeURIComponent(sub.id)}/groups/${encodeURIComponent(group)}`, { method: "POST" });
+    if (!g.ok) return "failed: " + mlSays(g);
+    return "ok";
+  } catch (e) {
+    return "failed: " + (e.name === "TimeoutError" ? "MailerLite took too long" : e.message);
+  }
+}
+
+/* The browser's own password box guards the list and the admin page: any username, ADMIN_KEY as the password.
+   No ADMIN_KEY set: those pages don't exist. Answers the request and returns false when the password isn't right. */
+const digest = s => crypto.createHash("sha256").update(String(s)).digest();
+function adminOk(req, res) {
+  const key = process.env.ADMIN_KEY;
+  if (!key) { res.status(404).send("Not found"); return false; }
+  const auth = String(req.headers.authorization || "");
+  const pass = auth.startsWith("Basic ") ? Buffer.from(auth.slice(6), "base64").toString("utf8").split(":").slice(1).join(":") : "";
+  if (!crypto.timingSafeEqual(digest(pass), digest(key))) {
+    res.setHeader("WWW-Authenticate", 'Basic realm="Torque HQ sign-ups", charset="UTF-8"');
+    res.status(401).send("Password needed");
+    return false;
+  }
+  return true;
 }
 
 const CONSENT = "Email me my beta invite and news about Torque HQ. I can unsubscribe any time.";
@@ -121,5 +186,6 @@ module.exports = async function handler(req, res) {
   }
 };
 
-/* for api/signups.js */
-Object.assign(module.exports, { redis, toMailerLite, redisReady: Boolean(REDIS_URL && REDIS_TOKEN), mailerLiteReady: Boolean(ML_KEY) });
+/* for api/signups.js and api/admin.js */
+Object.assign(module.exports, { redis, toMailerLite, inviteToMailerLite, inviteEmailsOn, adminOk, testerGroupName: ML_TESTERS,
+  redisReady: Boolean(REDIS_URL && REDIS_TOKEN), mailerLiteReady: Boolean(ML_KEY) });

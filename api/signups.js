@@ -3,13 +3,13 @@
    (any username, that password). No ADMIN_KEY: the page doesn't exist.
      ?count=1     just the number
      ?sync=1      sends everyone not yet in MailerLite (signed up before it was connected, or it failed) to MailerLite
-     ?sync=all    sends everyone again (safe: MailerLite updates them, and nobody gets the welcome email twice) */
-const crypto = require("crypto");
-const { redis, toMailerLite, redisReady, mailerLiteReady } = require("./signup.js");
+     ?sync=all    sends everyone again (safe: MailerLite updates them, and nobody gets the welcome email twice)
+   The invite columns come from the admin page (/admin): each tester's code, whether it's on or turned off, whether the
+   invite email went, and how many phones and browsers have joined with it. */
+const { redis, toMailerLite, redisReady, mailerLiteReady, adminOk } = require("./signup.js");
 
 const COLUMNS = ["signed_up", "updated", "email", "first_name", "instagram", "instagram_page", "youtube", "car", "other_car", "gearbox",
-                 "consent", "consent_at", "mailerlite"];
-const digest = s => crypto.createHash("sha256").update(String(s)).digest();
+                 "consent", "consent_at", "mailerlite", "invite_code", "invite_status", "invited_at", "invite_email", "devices"];
 /* a cell for Excel or Sheets: quoted, and never read as a formula */
 const cell = v => {
   let s = String(v == null ? "" : v);
@@ -17,18 +17,15 @@ const cell = v => {
   return '"' + s.replace(/"/g, '""') + '"';
 };
 const text = (res, code, body) => { res.setHeader("Content-Type", "text/plain; charset=utf-8"); return res.status(code).send(body); };
+const hash = async name => {
+  const flat = (await redis("HGETALL", name)) || [], o = {};
+  for (let i = 0; i + 1 < flat.length; i += 2) o[flat[i]] = flat[i + 1];
+  return o;
+};
 
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
-  const key = process.env.ADMIN_KEY;
-  if (!key) return res.status(404).send("Not found");
-
-  const auth = String(req.headers.authorization || "");
-  const pass = auth.startsWith("Basic ") ? Buffer.from(auth.slice(6), "base64").toString("utf8").split(":").slice(1).join(":") : "";
-  if (!crypto.timingSafeEqual(digest(pass), digest(key))) {
-    res.setHeader("WWW-Authenticate", 'Basic realm="Torque HQ sign-ups", charset="UTF-8"');
-    return res.status(401).send("Password needed");
-  }
+  if (!adminOk(req, res)) return;
   if (!redisReady) return text(res, 503, "Sign-ups aren't connected yet: add Upstash for Redis in Vercel > Storage.");
 
   try {
@@ -55,8 +52,18 @@ module.exports = async function handler(req, res) {
     }
     if (q.count) return text(res, 200, `${rows.length} sign-up${rows.length === 1 ? "" : "s"}`);
 
-    const lines = [COLUMNS.join(",")].concat(rows.map(r => COLUMNS.map(c =>
-      cell(c === "instagram_page" ? (r.instagram ? `https://www.instagram.com/${r.instagram}/` : "") : r[c])).join(",")));
+    const [invites, devices] = await Promise.all([hash("invites"), hash("invite_devices")]);
+    const extra = r => {
+      let inv = null;
+      try { inv = r.invite_code && JSON.parse(invites[r.invite_code]); } catch (e) { inv = null; }
+      if (!inv) return {};
+      return { invite_status: inv.status === "revoked" ? "turned off" : "invited", invite_email: inv.emailed || "not emailed",
+               devices: +devices[r.invite_code] || 0 };
+    };
+    const lines = [COLUMNS.join(",")].concat(rows.map(r => {
+      const x = Object.assign({ instagram_page: r.instagram ? `https://www.instagram.com/${r.instagram}/` : "" }, r, extra(r));
+      return COLUMNS.map(c => cell(x[c])).join(",");
+    }));
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", 'attachment; filename="torque-hq-signups.csv"');
     return res.status(200).send("﻿" + lines.join("\r\n") + "\r\n");
